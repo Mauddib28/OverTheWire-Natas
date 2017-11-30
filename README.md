@@ -3,7 +3,9 @@ Walk-through guide with examples for the OverTheWire Natas game
 
 ## Level 00
 **Needs:** web browser
+
 User/Pass: `natas0`
+
 URL: http://natasX.natas.labs.overthewire.org where X is the level
 
 Connect to page and view page source
@@ -151,3 +153,84 @@ If pass `a*z` returns large list in almost alphabetical order (ex: starts with '
 
 Input: '; cat /etc/natas_webpass/natas10; ls'
 * Get password!!!
+
+## Level 10
+Similar main page as Level 09, **but** with additional 'For security reasons, we now filter on certain characters'
+
+Change in page code:
+```
+if ($key != "") {
+	if (preg_match('/[;|]/', $key)) {
+		print "Input contains an illegal character!";
+	} else {
+		passthru("grep -i $key dictionary.txt");
+	}
+}
+```
+
+`int preg_match(string $pattern, string $subject [, array &&matches [, in $flags = 0 [, int $offset = 0]]])` - Perform regular expression match
+* Searches 'subject' for a match to the regular expression given in 'pattern'
+
+Code searching for: `[ ; | & ]`
+
+Try `\n` to separate commands
+
+Input: `-v "#" -r /etc/natas_webpass/natas11`
+* Got password!!!
+
+## Level 11
+Page says 'Cookies are protected with XOR encryption'.  Also has 'Background color' field with '#ffffff' filled in and a 'set color' button.  There is a 'view sourcecode' link
+
+```
+<?
+$defaultdata = array("showpassword"=>"no", "bgcolor"=>"#ffffff");
+function xor_encrypt($in) {
+	$key = '<censored>';
+	$text = $in;
+	$outText = '';
+	//Iterate through each character
+	for ($i = 0; $i < strlen($text); $i++) {
+		$outText .= $text[$i]^$key[$i % strlen($key)];
+	}
+	return $outText;
+}
+function loadData($def) {
+	global $_COOKIE;
+	$mydata = $def;
+	if (array_key_exists("data", $_COOKIE)) {
+		$tempdata = json_decode(xor_encrypt(base64_decode($_COOKIE["data"])), true);
+		if (is_array($tempdata) && array_key_exists("showpassword", $tempdata) && array_key_exists("bgcolor", $tempdata)) {
+			if (preg_match('/^#(?:[a-f\d]{6})$/i', $tempdata['bgcolor'])) {
+				$mydata['showpassword'] = $tempdata['showpassword'];
+				$mydata['bgcolor'] = $tempdata['bgcolor'];
+			}
+		}
+	}
+	return $mydata;
+}
+function saveData($d) {
+	setcookie("data", base64_encode(xor_encrypt(json_encode($d))));
+}
+$data = loadData($defaultdata);
+if (array_key_exists("bgcolor", $_REQUEST)) {
+	if (preg_match('/^#(?:[a-f\d]{6})$/i', $_REQUEST['bgcolor'])) {
+		$data['bgcolor'] = $_REQUEST['bgcolor'];
+	}
+}
+saveData($data);
+?>
+```
+
+`mixed json_decode(string $json [, bool $assoc = false [, int $depth = 512 [, int $options = 0]]])` - Decodes json string
+* Takes a JSON encoded string and converts it into a PHP variable
+
+`bool setcookie (string $name [, string $value [, int $expire = 0[, string $path [, string $domain [, bool $secure = false [, bool $httponly = false]]]]]])` - Send a cookie
+* `setcookie()` defines a cookie to be sent along with the rest fo the HTTP headers
+  * Once the cookies have been set, they can be accessed on the next page load with the `$_COOKIE` or `$HTTP_COOKIE_VARS`
+
+`bool is_array(mixed $var)` - Finds whether a variable is an array
+* Find whether the given variable is an array
+
+'/^#(?:[a-f\d]{6})$/i'
+1. Start of line must be '#' (comes from '^#')
+2. Look for something that matches without creating a capturing group (non-capturing group)[comes from (?:)]
